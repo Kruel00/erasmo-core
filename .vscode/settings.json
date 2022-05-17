@@ -33,6 +33,9 @@
     "statvfs.h": "c",
     "mount.h": "c",
     "typeinfo": "c",
-    "stdio.h": "c"
+    "stdio.h": "c",
+    "sg.h": "c",
+    "sg_lib.h": "c",
+    "cstdint": "c"
   }
 }
