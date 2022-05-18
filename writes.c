@@ -70,34 +70,38 @@ int main(){
     int infd, outfd, blocks, in_pdt, out_pdt;
 
     unsigned char *wrkPos;
+    unsigned char *fprint;
     long long skip = 0;
     long long seek = 0;
     static int blk_sz = 512;
     int scsi_cdbsz_out = DEF_SCSI_CDBSZ;
     char inf[SG_PATH_SIZE];
     unsigned char *wrkBuff;
+    unsigned char *wrkBuff2;
 
     uint8_t firma[] = 
-                {0x65, 0x72, 0x61, 0x73, 0x6d, 0x6f};
-
-    uint8_t data[] = 
     {
     0x51, 0x75, 0x61, 0x6E, 0x74, 0x75, 0x6D, 0x20, 0x65, 0x72, 0x61, 0x73,
     0x6D, 0x6F, 0x28, 0x52, 0x29, 0x20, 0x62, 0x79, 0x20, 0x4D, 0x6F, 0x62,
-    0x69, 0x6C, 0x69, 0x74, 0x79, 0x20, 0x54, 0x65, 0x61, 0x6D
+    0x69, 0x6C, 0x69, 0x74, 0x79, 0x20, 0x54, 0x65, 0x61, 0x6D, 0x0a, 0x0a
     };
-    
-    printf("Cantidad: %li\n",sizeof(data));
 
+    uint8_t data[512];
 
-    strcpy(inf,"/dev/sg3");
-    blocks=2;
+    memset(data,0x30,sizeof(data));
+
+    strcpy(inf,"/dev/sg4");
+    blocks=100;
     int bpt = 128;
     size_t psz = getpagesize();
     wrkBuff = malloc(blk_sz * bpt + psz);
+    wrkBuff2 = malloc(blk_sz * bpt + psz);
 
     wrkPos = wrkBuff;
     memcpy(wrkPos,&data,sizeof(data));
+
+    fprint = wrkBuff2;
+    memcpy(fprint,&firma,sizeof(firma));
 
     //open device.
     printf("\n");    
@@ -105,14 +109,21 @@ int main(){
     if ((outfd = sg_cmds_open_device(inf, 1, verbose)) < 0)
     {   
         fprintf(stderr, ME " Device %s dont exist\n%s\n", inf, safe_strerror(-sg_fd));
+        
         return EXIT_FAILURE;
     }
 
     dio_tmp = dio;
 
+    for(int i = 0;i < blocks;i++){
     res = sg_write(outfd, wrkPos, blocks, seek, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp);
-    printf("erasmo: %i\n",res);
-    
+        skip++;
+        seek++;
+    printf("Block: %i\n",i);
+    }
+
+    res = sg_write(outfd, fprint, 1, 0, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp);
+
     free(wrkBuff);
 
     return 0;
