@@ -71,58 +71,75 @@ int main(){
 
     unsigned char *wrkPos;
     unsigned char *fprint;
-    long long skip = 0;
-    long long seek = 0;
+    //long long skip = 0;
+    long long seek = 1;
     static int blk_sz = 512;
     int scsi_cdbsz_out = DEF_SCSI_CDBSZ;
     char inf[SG_PATH_SIZE];
     unsigned char *wrkBuff;
     unsigned char *wrkBuff2;
 
-    uint8_t firma[] = 
+    uint8_t erasmosign[] = 
     {
     0x51, 0x75, 0x61, 0x6E, 0x74, 0x75, 0x6D, 0x20, 0x65, 0x72, 0x61, 0x73,
     0x6D, 0x6F, 0x28, 0x52, 0x29, 0x20, 0x62, 0x79, 0x20, 0x4D, 0x6F, 0x62,
     0x69, 0x6C, 0x69, 0x74, 0x79, 0x20, 0x54, 0x65, 0x61, 0x6D, 0x0a, 0x0a
     };
 
-    uint8_t data[512];
-
-    memset(data,0x30,sizeof(data));
-
     strcpy(inf,"/dev/sg4");
-    blocks=100;
+    blocks=128;
     int bpt = 128;
+    int device_blocks = 3839999;
     size_t psz = getpagesize();
     wrkBuff = malloc(blk_sz * bpt + psz);
-    wrkBuff2 = malloc(blk_sz * bpt + psz);
+
+    wrkBuff2 = malloc(512);
+    long long int tfwide = blk_sz * bpt + psz;
+    
+    uint8_t data[tfwide];
+
+    memset(data,0x58,sizeof(data));
 
     wrkPos = wrkBuff;
     memcpy(wrkPos,&data,sizeof(data));
-
+    
     fprint = wrkBuff2;
-    memcpy(fprint,&firma,sizeof(firma));
+    memcpy(fprint,&erasmosign,sizeof(erasmosign));
 
     //open device.
-    printf("\n");    
-
     if ((outfd = sg_cmds_open_device(inf, 1, verbose)) < 0)
     {   
         fprintf(stderr, ME " Device %s dont exist\n%s\n", inf, safe_strerror(-sg_fd));
-        
         return EXIT_FAILURE;
     }
 
     dio_tmp = dio;
 
-    for(int i = 0;i < blocks;i++){
-    res = sg_write(outfd, wrkPos, blocks, seek, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp);
-        skip++;
-        seek++;
-    printf("Block: %i\n",i);
+    for(int i = 1;i < (device_blocks / blocks) - 1;i++){
+
+        res = sg_write(outfd, wrkPos, blocks, seek, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp);
+        seek += blocks;
+        printf("skip %lli\n",seek);
+        
     }
 
-    res = sg_write(outfd, fprint, 1, 0, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp);
+    int blk_remains = device_blocks - seek;
+
+    if(seek > 0){
+
+        for(int i = 1;i < blk_remains;i++){
+            res = sg_write(outfd, wrkPos, 1, seek, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp);
+            seek++;
+            printf("skip X1: %lli\n",seek);
+        }
+    }
+
+    printf("restantes: %lli", device_blocks - seek);
+
+
+    if (res = sg_write(outfd, fprint, 1, 0, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp)){
+        printf("OK");
+    }
 
     free(wrkBuff);
 
@@ -133,10 +150,7 @@ int main(){
 /* 0 -> successful, -1 -> unrecoverable error, -2 -> recoverable (ENOMEM),
    -3 -> try again (media changed unit attention) */
 static int sg_write(int sg_fd, unsigned char *buff, int blocks, long long to_block, int bs, int cdbsz, int fua, int dpo, int *diop){
-    /*for(int i =0; i<7;i++){
-        printf("%c",buff[i]);
-    }*/
-    printf("\n");
+
     unsigned char wrCmd[MAX_SCSI_CDBSZ];
     unsigned char senseBuff[SENSE_BUFF_LEN];
     struct sg_io_hdr io_hdr;
@@ -145,7 +159,7 @@ static int sg_write(int sg_fd, unsigned char *buff, int blocks, long long to_blo
 
     if (sg_build_scsi_cdb(wrCmd, cdbsz, blocks, to_block, 1, fua, dpo))
     {
-        fprintf(stderr, ME "bad wr cdb build, to_block=%lld, blocks=%d\n", to_block, blocks);
+        fprintf(stderr, ME " bad wr cdb build, to_block=%lld, blocks=%d\n", to_block, blocks);
         return -1;
     }
 
@@ -156,7 +170,6 @@ static int sg_write(int sg_fd, unsigned char *buff, int blocks, long long to_blo
     io_hdr.dxfer_direction = SG_DXFER_TO_DEV;
     io_hdr.dxfer_len = bs * blocks;
     io_hdr.dxferp = buff;
-    printf("%p\n",io_hdr.dxferp);
     io_hdr.mx_sb_len = SENSE_BUFF_LEN;
     io_hdr.sbp = senseBuff;
     io_hdr.timeout = DEF_TIMEOUT;
