@@ -36,6 +36,7 @@
     "stdio.h": "c",
     "sg.h": "c",
     "sg_lib.h": "c",
-    "cstdint": "c"
+    "cstdint": "c",
+    "sg_cmds.h": "c"
   }
 }

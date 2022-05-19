@@ -22,11 +22,11 @@
 #define ME "erasmo"
 #define SG_DD_BYPASS 999        /* failed but coe set */
 #define SG_PATH_SIZE 512
-
+#define DEF_SCSI_CDBSZ 10
 
 static int cmd_timeout = DEF_TIMEOUT;   /* in milliseconds */
 static bool do_verify = false;          /* when false: do copy */
-#define DEF_SCSI_CDBSZ 10
+
 static uint32_t glob_pack_id = 0;       /* pre-increment */
 static int verbose = 0;
 static int recovered_errs = 0;
@@ -63,7 +63,6 @@ struct flags_t {
     int retries;
 };
 
-
 int main(){
 
     int res, k, t, buf_sz, dio_tmp, flags, fl, sg_fd;
@@ -98,7 +97,7 @@ int main(){
     
     uint8_t data[tfwide];
 
-    memset(data,0x58,sizeof(data));
+    memset(data,0x45,sizeof(data));
 
     wrkPos = wrkBuff;
     memcpy(wrkPos,&data,sizeof(data));
@@ -115,11 +114,13 @@ int main(){
 
     dio_tmp = dio;
 
-    for(int i = 1;i < (device_blocks / blocks) - 1;i++){
+    for(int i = 1;i < (device_blocks / blocks);i++){
 
+        printf("%lli de %i blocks...\n",seek, device_blocks);
         res = sg_write(outfd, wrkPos, blocks, seek, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp);
         seek += blocks;
-        printf("skip %lli\n",seek);
+        system("clear");
+        
         
     }
 
@@ -127,15 +128,16 @@ int main(){
 
     if(seek > 0){
 
-        for(int i = 1;i < blk_remains;i++){
+        for(int i = 1;i < blk_remains + 2 ;i++){
+            printf("%lli de %i blocks...\n",seek, device_blocks);
             res = sg_write(outfd, wrkPos, 1, seek, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp);
             seek++;
-            printf("skip X1: %lli\n",seek);
+            system("clear");
+            
         }
     }
 
     printf("restantes: %lli", device_blocks - seek);
-
 
     if (res = sg_write(outfd, fprint, 1, 0, blk_sz, scsi_cdbsz_out, oflag.fua, oflag.dpo, &dio_tmp)){
         printf("OK");
@@ -145,7 +147,6 @@ int main(){
 
     return 0;
 }
-
 
 /* 0 -> successful, -1 -> unrecoverable error, -2 -> recoverable (ENOMEM),
    -3 -> try again (media changed unit attention) */

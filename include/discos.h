@@ -1,3 +1,4 @@
+#include <stdbool.h>
 typedef struct mount_point_s {
 
 	char path[512];
@@ -90,6 +91,7 @@ typedef struct erasing_device_s{
 	int block_size;
 	unsigned long long int total_sectors;
 	char capacity[32];
+    bool erased;
 }erasing_device_t;
 
 
